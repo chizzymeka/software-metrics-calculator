@@ -8,12 +8,12 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class VersionNameManager {
+
+    Path datasetPath = new App().getDatasetPath();
 
     public LinkedHashSet<String> getVersionNames() throws IOException {
 
@@ -22,12 +22,7 @@ public class VersionNameManager {
         ArrayList<String> versionNames = new ArrayList<>();
         LinkedHashSet versionNames_sorted = null;
 
-        // Consider modifying this data structure to use a temp file.
-        // Traverse the top level folders in the dataset folder to obtain the system
-        // version names from the folder names.
-        App App = new App();
-        Path datasetPath = App.getDatasetPath();
-
+        // Traverse the top level folders in the dataset folder to obtain the system version names from the folder names.
         if (datasetPath != null) {
 
             try (DirectoryStream<Path> paths = Files.newDirectoryStream(datasetPath)) {
@@ -57,11 +52,9 @@ public class VersionNameManager {
         LinkedHashSet<String> versionNames = getVersionNames();
 
         for (String versionName : versionNames) {
-
             if (sourcefilePath.contains(versionName)) {
                 version = versionName;
             }
-
         }
 
         return version;

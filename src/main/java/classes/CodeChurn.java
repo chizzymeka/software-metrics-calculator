@@ -1,6 +1,7 @@
 package classes;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Objects;
 
 public class CodeChurn {
@@ -11,6 +12,7 @@ public class CodeChurn {
     private String sourcefileName;
     private String className;
     private HashMap<String, String> methods = new HashMap<>();
+    private HashSet<String> comparedVersions = new HashSet<>();
 
     public String getFilepath() {
         return filepath;
@@ -60,16 +62,24 @@ public class CodeChurn {
         this.methods = methods;
     }
 
+    public HashSet<String> getComparedVersions() {
+        return comparedVersions;
+    }
+
+    public void setComparedVersions(HashSet<String> comparedVersions) {
+        this.comparedVersions = comparedVersions;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         CodeChurn codeChurn = (CodeChurn) o;
-        return Objects.equals(filepath, codeChurn.filepath) && Objects.equals(filepathSuffix, codeChurn.filepathSuffix) && Objects.equals(versionName, codeChurn.versionName) && Objects.equals(sourcefileName, codeChurn.sourcefileName) && Objects.equals(className, codeChurn.className) && Objects.equals(methods, codeChurn.methods);
+        return Objects.equals(filepath, codeChurn.filepath) && Objects.equals(filepathSuffix, codeChurn.filepathSuffix) && Objects.equals(versionName, codeChurn.versionName) && Objects.equals(sourcefileName, codeChurn.sourcefileName) && Objects.equals(className, codeChurn.className) && Objects.equals(methods, codeChurn.methods) && Objects.equals(comparedVersions, codeChurn.comparedVersions);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(filepath, filepathSuffix, versionName, sourcefileName, className, methods);
+        return Objects.hash(filepath, filepathSuffix, versionName, sourcefileName, className, methods, comparedVersions);
     }
 }

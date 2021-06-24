@@ -5,32 +5,37 @@
 package software_metrics;
 
 import classes.CodeChurn;
+import classes.NumberOfChanges;
+import classes.Sourcefile;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import classes.Sourcefile;
 import core.VersionNameManager;
 import ucl.cdt.cybersecurity.App;
 import utilities.SourcefileNameExtractor;
 import utilities.TaskProgressReporter;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
 
 public class CodeChurnDataBuilder {
 
     public void buildCodeChurnData(Sourcefile sourcefile) throws IOException {
 
-        new TaskProgressReporter().count();
+        new TaskProgressReporter().showProgress();
         HashMap<String, HashSet<CodeChurn>> codeChurnDataMap = new App().getCodeChurnDataMap();
         HashSet<CodeChurn> codeChurnObjects = new App().getCodeChurnObjects();
-        List<ClassOrInterfaceDeclaration> classDeclarations = sourcefile.getClassDeclarations();
+        List<ClassOrInterfaceDeclaration> classOrInterfaceDeclarations = sourcefile.getClassDeclarations();
         String filepath = sourcefile.getFilepath();
         String versionName = new VersionNameManager().getVersionName(filepath);
         String filepathSuffix = filepath.split(versionName)[1];
         String sourceFileName = new SourcefileNameExtractor().extractSourcefileName(filepath);
+        ArrayList<String> versionNamesList = new ArrayList<>(new VersionNameManager().getVersionNames());  // LinkedHashSet to ArrayList conversion.
 
-        for (ClassOrInterfaceDeclaration classDeclaration : classDeclarations) {
+        for (ClassOrInterfaceDeclaration classOrInterfaceDeclaration : classOrInterfaceDeclarations) {
 
             CodeChurn codeChurn = new CodeChurn();
             codeChurn.setFilepath(filepath);
@@ -38,10 +43,10 @@ public class CodeChurnDataBuilder {
             codeChurn.setVersionName(versionName);
             codeChurn.setSourcefileName(sourceFileName);
 
-            String className = classDeclaration.getNameAsString();
+            String className = classOrInterfaceDeclaration.getNameAsString();
             codeChurn.setClassName(className);
 
-            List<MethodDeclaration> methodDeclarations = classDeclaration.getMethods();
+            List<MethodDeclaration> methodDeclarations = classOrInterfaceDeclaration.getMethods();
             HashMap<String, String> methods = new HashMap<>();
 
             for (MethodDeclaration methodDeclaration : methodDeclarations) {
@@ -61,18 +66,12 @@ public class CodeChurnDataBuilder {
         new App().setCodeChurnDataMap(codeChurnDataMap);
         codeChurnDataMap = new App().getCodeChurnDataMap();
 
-        long numberOfProcessedFiles = new App().getNumberOfprocessedFiles();
-        long totalNumberOfJavaSourceFilesInDataset = new App().getTotalNumberOfJavaSourcefilesInDataset();
-        LinkedHashSet<String> versionNames = new VersionNameManager().getVersionNames();
+        long numberOfProcessedFiles = new App().getNumberOfProcessedFiles();
+        long totalNumberOfJavaSourceFilesInDataset = new App().getTotalNumberOfJavaSourceFilesInDataset();
 
         if (numberOfProcessedFiles == totalNumberOfJavaSourceFilesInDataset) {
 
-            int currentCodeChurnObject = 0;
-            int totalSize = 0;
-
-            for (Entry<String, HashSet<CodeChurn>> entry : codeChurnDataMap.entrySet()) {
-                totalSize += entry.getValue().size();
-            }
+            HashMap<String, NumberOfChanges> numberOfChangesMap = App.getNumberOfChangesMap();
 
             // The code below traverses the entire dataset and compares every method to their counterparts in other version to detect changes.
             for (Entry<String, HashSet<CodeChurn>> entry_outer : codeChurnDataMap.entrySet()) {
@@ -89,10 +88,6 @@ public class CodeChurnDataBuilder {
 
                         // Check that versions are NOT the same.
                         if (!versionName_outer.equals(versionName_inner)) {
-
-                            currentCodeChurnObject++;
-                            // We multiply 'totalSize' by two to account for the report generation which will follow after this loop has completed.
-                            System.out.println("Currently working on: " + currentCodeChurnObject + " out of " + totalSize * 2 + ".");
 
                             for (CodeChurn codeChurnObject_inner : codeChurnObjects_inner) {
 
@@ -122,34 +117,48 @@ public class CodeChurnDataBuilder {
                                                 // Check that the method signatures are the same.
                                                 if (methodSignature_outer.equals(methodSignature_inner)) {
 
+                                                    String key = versionName_outer + "=+=" + filePathSuffix_outer + "=+=" +  className_outer + "=+=" + methodSignature_outer + "=+=" + methodContent_outer;
+                                                    NumberOfChanges numberOfChangesObject = new NumberOfChanges();
+                                                    int numberOfChanges;
+
                                                     // Check that the method contents are NOT the same.
                                                     if (!methodContent_outer.equals(methodContent_inner)) {
 
                                                         // System.out.println("Change detected!");
 
-                                                        //------------------------------------------------------------------------------------------------------------------------
-                                                        // The code below ensures that code changes across versions are properly tracked and updated.
-                                                        // This code churn functionality heavily relies on The Alphanum Algorithm -  see 'VersionNameManager.java'.
-                                                        // The algorithm sorts the dataset versions from earliest to most recent based on the version numbers in the version folders. For example, from ‘apache-tomcat-7.0.0-src’ to ‘apache-tomcat-7.0.108-src’.
-                                                        // We then store these versions in a LinkedHashSet to preserve insertion order.
-                                                        // Suppose a change is detected when assessing code churn. In that case, we assign the index number (from the set) of the version as the number of code churn value.
-                                                        // So, as long as the folders containing the different versions in the dataset are appropriately named, the code churn will work as expected.
-                                                        //------------------------------------------------------------------------------------------------------------------------
-
-                                                        ArrayList<String> versionNamesList = new ArrayList<>(versionNames);
-                                                        int versionName_outer_index = versionNamesList.indexOf(versionName_outer);
-                                                        String key = versionName_outer + "=+=" + filePathSuffix_outer + "=+=" +  className_outer + "=+=" + methodSignature_outer;
-                                                        HashMap<String, Long> numberOfChangesMap = new App().getNumberOfChangesMap();
-                                                        long numberOfChanges = 0L;
-
-                                                        if (numberOfChangesMap.containsKey(key)) {
-                                                            numberOfChanges = versionName_outer_index;
+                                                        if (!numberOfChangesMap.containsKey(key)) {
+                                                            numberOfChangesObject = new NumberOfChanges();
+                                                        } else {
+                                                            numberOfChangesObject = numberOfChangesMap.get(key);
                                                         }
+                                                        numberOfChanges = versionNamesList.indexOf(versionName_outer);
+                                                        numberOfChangesObject.setCodeChurnValue(numberOfChanges);
+                                                    } else {
+                                                        // When no code churn is detected, this 'else' section doubles back to reuse the positive last code churn value.
 
-                                                        numberOfChangesMap.put(key, numberOfChanges);
+                                                        int index = versionNamesList.indexOf(versionName_outer);
+                                                        numberOfChanges = numberOfChangesObject.getCodeChurnValue();
 
-                                                        //------------------------------------------------------------------------------------------------------------------------
+                                                        // if ((index > 0) && (numberOfChanges == 0)) {
+                                                        //    numberOfChanges = index - 1;
+                                                        //    numberOfChangesObject.setCodeChurnValue(numberOfChanges);
+                                                        // }
+
+                                                        // Check that the key is not associated with the oldest version but has zero changes
+                                                        if ((index > 0) && (numberOfChanges == 0)) {
+                                                            while (index > 0) {
+
+                                                                --index;
+
+                                                                if ((numberOfChangesMap.containsKey(key)) && (index != 0) && (numberOfChangesMap.get(key).getCodeChurnValue() <= index)) {
+                                                                    numberOfChanges = index;
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+                                                        numberOfChangesObject.setCodeChurnValue(numberOfChanges);
                                                     }
+                                                    numberOfChangesMap.put(key, numberOfChangesObject);
                                                 }
                                             }
                                         }
@@ -160,7 +169,13 @@ public class CodeChurnDataBuilder {
                     }
                 }
             }
+
+            // Files.write(Paths.get("churnedKeys.txt"), () -> churnedKeys.entrySet().stream().<CharSequence>map(e -> e.getKey() + ":" + e.getValue()).iterator());
+            // Files.write(Paths.get("unChurnedKeys.txt"), () -> unChurnedKeys.entrySet().stream().<CharSequence>map(e -> e.getKey() + ":" + e.getValue()).iterator());
+
             // System.exit(0);
+            // Reset the number of processed files counter after building code churn data so that it will start afresh for CSV writing.
+            new App().setNumberOfProcessedFiles(0L);
         }
     }
 }

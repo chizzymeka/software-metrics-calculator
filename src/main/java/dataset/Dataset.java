@@ -3,7 +3,7 @@
 
 package dataset;
 
-import core.SourceFileObjectBuilder;
+import ucl.cdt.cybersecurity.App;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -15,33 +15,18 @@ public class Dataset {
 
     public void traverseDataset(Path datasetPath) throws IOException {
 
+        TreeSet<Path> paths = new App().getPaths();
+
         if (datasetPath != null) {
 
-            TreeSet<Path> paths = new TreeSet<>();
-
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(datasetPath)) {
-
                 for (Path entry : stream) {
-
                     if (Files.isDirectory(entry)) {
                         traverseDataset(entry);
                     }
-
                     paths.add(entry);
-
                 }
-
             }
-
-            for (Path path : paths) {
-
-                // Process all Java files.
-                if (path.toString().endsWith(".java")) {
-                    new SourceFileObjectBuilder().buildSourceFileObject(path.toString());
-                }
-
-            }
-
         }
     }
 }

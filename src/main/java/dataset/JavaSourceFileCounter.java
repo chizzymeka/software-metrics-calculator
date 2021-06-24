@@ -7,14 +7,14 @@ import java.util.stream.Stream;
 
 public class JavaSourceFileCounter {
 
-    public long countJavaSourceFiles(Path datasetPath) throws IOException {
+    public long countJavaSourceFiles(Path path) throws IOException {
 
-        long totalNumberOfJavaSourceFilesInDataset = 0;
+        long totalNumberOfJavaSourceFiles = 0;
 
-        try (Stream<Path> walk = Files.walk(datasetPath)) {
-            totalNumberOfJavaSourceFilesInDataset = walk.filter(p -> !Files.isDirectory(p)).map(p -> p.toString().toLowerCase()).filter(f -> f.endsWith(".java")).count();
+        try (Stream<Path> walk = Files.walk(path)) {
+            totalNumberOfJavaSourceFiles = walk.filter(p -> !Files.isDirectory(p)).map(p -> p.toString().toLowerCase()).filter(f -> f.endsWith(".java")).count();
         }
 
-        return totalNumberOfJavaSourceFilesInDataset;
+        return totalNumberOfJavaSourceFiles;
     }
 }

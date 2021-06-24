@@ -3,10 +3,10 @@
 package report;
 
 import au.com.bytecode.opencsv.CSVWriter;
+import classes.Sourcefile;
 import com.github.javaparser.Position;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import classes.Sourcefile;
 import software_metrics.*;
 import ucl.cdt.cybersecurity.App;
 import utilities.TaskProgressReporter;
@@ -33,7 +33,6 @@ public class SoftwareMetricsReport {
 
     public void writeSoftwareMetricsReportRow(Sourcefile sourcefile) throws IOException {
 
-        new TaskProgressReporter().count();
         // TODO: Change the report filename ("software_metrics_report.csv") to include the name of the system/dataset as input by the user.
 //        String csv = "src" + File.separator + "main" + File.separator + "java" + File.separator + "output"
 //                + File.separator + "software_metrics_report.csv";
@@ -72,10 +71,13 @@ public class SoftwareMetricsReport {
 
                 String className = classDeclaration.getNameAsString();
                 String methodSignature = methodDeclaration.getSignature().toString();
+                String methodContent = methodDeclaration.toString();
                 Position methodBeginPosition = methodDeclaration.getBegin().get();
                 int line = methodBeginPosition.line;
+
+                // Software Metrics
                 long ageInWeeks = new AgeCalculator().calculateAgeInWeeks(sourcefile);
-                long codeChurn = new CodeChurnLookUp().lookupCodeChurnValue(sourcefile, classDeclaration, methodDeclaration);
+                int codeChurn = new CodeChurnLookUp().lookupCodeChurnValue(sourcefile, classDeclaration, methodDeclaration);
                 int cyclomaticComplexity = new CyclomaticComplexityCalculator().calculateCyclomaticComplexityValue(methodDeclaration);
                 int dependency = new DependencyCalculator().calculateDependency(sourcefile, methodDeclaration);
                 int numberOfLinesOfCode = new NumberOfLinesOfCodeCalculator().calculateNumberOfLinesOfCode(methodDeclaration);
@@ -84,7 +86,7 @@ public class SoftwareMetricsReport {
                 csvData[1] = className;
                 csvData[2] = "NA";
                 csvData[3] = Long.toString(ageInWeeks);
-                csvData[4] = Long.toString(codeChurn);
+                csvData[4] = Integer.toString(codeChurn);
                 csvData[5] = Integer.toString(cyclomaticComplexity);
                 csvData[6] = Integer.toString(dependency);
                 csvData[7] = Integer.toString(numberOfLinesOfCode);
@@ -92,11 +94,9 @@ public class SoftwareMetricsReport {
                 csvData[9] = filePath;
                 csvData[10] = Integer.toString(line);
                 csvWriter.writeNext(csvData);
-
             }
-
         }
         csvWriter.close();
+        new TaskProgressReporter().showProgress();
     }
-
 }
