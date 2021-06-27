@@ -1,11 +1,11 @@
-// Read write CSV file in Java – OpenCSV tutorialg: https://howtodoinjava.com/java/library/parse-read-write-csv-opencsv/
+// Read write CSV file in Java – OpenCSV tutorial: https://howtodoinjava.com/java/library/parse-read-write-csv-opencsv/
 // How do I get a URL or URI to a file?: http://www.avajava.com/tutorials/lessons/how-do-i-get-a-url-or-uri-to-a-file.html
 package report;
 
 import au.com.bytecode.opencsv.CSVWriter;
+import classes.MethodDeclarationAndAttributes;
 import classes.Sourcefile;
 import com.github.javaparser.Position;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import software_metrics.*;
 import ucl.cdt.cybersecurity.App;
@@ -14,7 +14,9 @@ import utilities.TaskProgressReporter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 
 public class SoftwareMetricsReport {
 
@@ -33,10 +35,14 @@ public class SoftwareMetricsReport {
 
     public void writeSoftwareMetricsReportRow(Sourcefile sourcefile) throws IOException {
 
+        new TaskProgressReporter().showProgress();
+
         // TODO: Change the report filename ("software_metrics_report.csv") to include the name of the system/dataset as input by the user.
-//        String csv = "src" + File.separator + "main" + File.separator + "java" + File.separator + "output"
-//                + File.separator + "software_metrics_report.csv";
-        String csv = "E:" + File.separator + "Year 1 Project Dataset" + File.separator + "CSV Report" + File.separator + "software_metrics_report.csv";
+
+        int numberOfVersions = new App().getVersionNamesList().size();
+
+        String csv = "E:" + File.separator + "Year 1 Project Dataset" + File.separator + "CSV Report" + File.separator + "software_metrics_report_" + numberOfVersions + "_version(s).csv";
+        // String csv = "src" + File.separator + "main" + File.separator + "java" + File.separator + "output" + File.separator + "software_metrics_report.csv";
 
         CSVWriter csvWriter = new CSVWriter(new FileWriter(csv, true));
 
@@ -61,23 +67,24 @@ public class SoftwareMetricsReport {
 
         String filePath = sourcefile.getFilepath();
 
-        List<ClassOrInterfaceDeclaration> classDeclarations = sourcefile.getClassDeclarations();
+        HashMap<String, HashSet<MethodDeclarationAndAttributes>> classNameAndMethodDeclarationAndAttributes = sourcefile.getClassNameAndMethodDeclarationAndAttributes();
 
-        for (ClassOrInterfaceDeclaration classDeclaration : classDeclarations) {
+        for (Map.Entry<String, HashSet<MethodDeclarationAndAttributes>> entry : classNameAndMethodDeclarationAndAttributes.entrySet()) {
 
-            List<MethodDeclaration> methodDeclarations = classDeclaration.getMethods();
+            String className = entry.getKey();
 
-            for (MethodDeclaration methodDeclaration : methodDeclarations) {
+            HashSet<MethodDeclarationAndAttributes> methodDeclarationAndAttributes = entry.getValue();
 
-                String className = classDeclaration.getNameAsString();
-                String methodSignature = methodDeclaration.getSignature().toString();
-                String methodContent = methodDeclaration.toString();
-                Position methodBeginPosition = methodDeclaration.getBegin().get();
+            for (MethodDeclarationAndAttributes methodDeclarationAndAttribute : methodDeclarationAndAttributes) {
+
+                MethodDeclaration methodDeclaration = methodDeclarationAndAttribute.getMethodDeclaration();
+                String methodSignature = methodDeclarationAndAttribute.getMethodDeclaration().getSignature().toString();
+                Position methodBeginPosition = methodDeclarationAndAttribute.getMethodDeclaration().getBegin().get();
                 int line = methodBeginPosition.line;
 
                 // Software Metrics
                 long ageInWeeks = new AgeCalculator().calculateAgeInWeeks(sourcefile);
-                int codeChurn = new CodeChurnLookUp().lookupCodeChurnValue(sourcefile, classDeclaration, methodDeclaration);
+                int codeChurn = new CodeChurnLookUp().lookupCodeChurnValue(sourcefile, className, methodDeclaration);
                 int cyclomaticComplexity = new CyclomaticComplexityCalculator().calculateCyclomaticComplexityValue(methodDeclaration);
                 int dependency = new DependencyCalculator().calculateDependency(sourcefile, methodDeclaration);
                 int numberOfLinesOfCode = new NumberOfLinesOfCodeCalculator().calculateNumberOfLinesOfCode(methodDeclaration);
@@ -97,6 +104,5 @@ public class SoftwareMetricsReport {
             }
         }
         csvWriter.close();
-        new TaskProgressReporter().showProgress();
     }
 }

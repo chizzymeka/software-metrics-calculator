@@ -1,18 +1,25 @@
 package classes;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Objects;
 
 public class CodeChurn {
 
+    private int codeChurnObjectId;
     private String filepath;
     private String filepathSuffix;
     private String versionName;
     private String sourcefileName;
     private String className;
-    private HashMap<String, String> methods = new HashMap<>();
-    private HashSet<String> comparedVersions = new HashSet<>();
+    private HashSet<Method> methods = new HashSet<>();
+
+    public int getCodeChurnObjectId() {
+        return codeChurnObjectId;
+    }
+
+    public void setCodeChurnObjectId(int codeChurnObjectId) {
+        this.codeChurnObjectId = codeChurnObjectId;
+    }
 
     public String getFilepath() {
         return filepath;
@@ -54,20 +61,12 @@ public class CodeChurn {
         this.className = className;
     }
 
-    public HashMap<String, String> getMethods() {
+    public HashSet<Method> getMethods() {
         return methods;
     }
 
-    public void setMethods(HashMap<String, String> methods) {
+    public void setMethods(HashSet<Method> methods) {
         this.methods = methods;
-    }
-
-    public HashSet<String> getComparedVersions() {
-        return comparedVersions;
-    }
-
-    public void setComparedVersions(HashSet<String> comparedVersions) {
-        this.comparedVersions = comparedVersions;
     }
 
     @Override
@@ -75,11 +74,11 @@ public class CodeChurn {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         CodeChurn codeChurn = (CodeChurn) o;
-        return Objects.equals(filepath, codeChurn.filepath) && Objects.equals(filepathSuffix, codeChurn.filepathSuffix) && Objects.equals(versionName, codeChurn.versionName) && Objects.equals(sourcefileName, codeChurn.sourcefileName) && Objects.equals(className, codeChurn.className) && Objects.equals(methods, codeChurn.methods) && Objects.equals(comparedVersions, codeChurn.comparedVersions);
+        return codeChurnObjectId == codeChurn.codeChurnObjectId && Objects.equals(filepath, codeChurn.filepath) && Objects.equals(filepathSuffix, codeChurn.filepathSuffix) && Objects.equals(versionName, codeChurn.versionName) && Objects.equals(sourcefileName, codeChurn.sourcefileName) && Objects.equals(className, codeChurn.className) && Objects.equals(methods, codeChurn.methods);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(filepath, filepathSuffix, versionName, sourcefileName, className, methods, comparedVersions);
+        return Objects.hash(codeChurnObjectId, filepath, filepathSuffix, versionName, sourcefileName, className, methods);
     }
 }

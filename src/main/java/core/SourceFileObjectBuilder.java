@@ -1,5 +1,6 @@
 package core;
 
+import classes.MethodDeclarationAndAttributes;
 import classes.Sourcefile;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
@@ -8,7 +9,6 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import java_parser.ClassDeclarationVisitor;
 import java_parser.MethodCallVisitor;
-import java_parser.MethodDeclarationVisitor;
 import report.SoftwareMetricsReport;
 import software_metrics.CodeChurnDataBuilder;
 import ucl.cdt.cybersecurity.App;
@@ -22,12 +22,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.LinkedHashSet;
-import java.util.List;
+import java.util.*;
 
 public class SourceFileObjectBuilder {
 
-    public void buildSourceFileObject(String sourceFilePath) throws IOException {
+    public void buildSourceFileObject(String sourceFilePath, int sourceFileId) throws IOException {
 
         LinkedHashSet<String> versionNames = new VersionNameManager().getVersionNames();
         Sourcefile sourcefile = new Sourcefile();
@@ -36,7 +35,10 @@ public class SourceFileObjectBuilder {
 
             if (sourceFilePath.contains(versionName)) {
 
+                sourcefile.setSourceFileId(sourceFileId);
+
                 sourcefile.setDatasetVersion(versionName);
+
                 sourcefile.setFilepath(sourceFilePath);
 
                 String content = new SourceFileObjectBuilder().getSourceFileContent(sourceFilePath);
@@ -51,16 +53,50 @@ public class SourceFileObjectBuilder {
 
                 CompilationUnit compilationUnitNode = StaticJavaParser.parse(new File(sourceFilePath));
                 List<ClassOrInterfaceDeclaration> classOrInterfaceDeclarations = new ClassDeclarationVisitor().visit(compilationUnitNode, null);
-                sourcefile.setClassDeclarations(classOrInterfaceDeclarations);
 
-                List<MethodDeclaration> methodDeclarations = new MethodDeclarationVisitor().visit(compilationUnitNode, null);
-                sourcefile.setMethodDeclarations(methodDeclarations);
+                for (ClassOrInterfaceDeclaration classOrInterfaceDeclaration : classOrInterfaceDeclarations) {
+
+                    HashSet<MethodDeclarationAndAttributes> methodDeclarationAndAttributesList = new HashSet<>();
+                    HashMap<String, HashSet<MethodDeclarationAndAttributes>> classNameAndMethodDeclarationAndAttributes = new HashMap<>();
+
+                    String className = classOrInterfaceDeclaration.getNameAsString();
+                    int counter_outer = ++sourceFileId;
+
+                    List<MethodDeclaration> methodDeclarations = classOrInterfaceDeclaration.getMethods();
+
+                    for (MethodDeclaration methodDeclaration : methodDeclarations) {
+
+                        int counter_inner = ++sourceFileId;
+                        int methodId = sourceFileId + counter_outer + counter_inner;
+
+                        MethodDeclarationAndAttributes methodDeclarationAndAttributes = new MethodDeclarationAndAttributes();
+                        methodDeclarationAndAttributes.setMethodId(methodId);
+                        methodDeclarationAndAttributes.setMethodDeclaration(methodDeclaration);
+                        methodDeclarationAndAttributesList.add(methodDeclarationAndAttributes);
+                        HashMap<String, Integer> keyMap = App.getKeyMap();
+
+                        String filepathSuffix = sourceFilePath.split(versionName)[1];
+                        String methodSignature = methodDeclaration.getSignature().toString();
+
+                        /*
+                            'keyMap' maps the string key to the methodId. In 'CodeChurnLookup.java', we formulate the string keys from the sourcefile objects and use it to obtain the methodId which we then use to obtain the code churn value.
+                            This approach allows the use of an int key in 'CodeChurnDataBuilder'.java to avoid the 'GC overhead limit exceeded' OutOfMemory exception that occurs when we use the string key directly.
+                         */
+                        String key = versionName + filepathSuffix + className + methodSignature.intern();
+                        keyMap.put(key, methodId);
+                    }
+                    classNameAndMethodDeclarationAndAttributes.put(className, methodDeclarationAndAttributesList);
+                    sourcefile.setClassNameAndMethodDeclarationAndAttributes(classNameAndMethodDeclarationAndAttributes);
+                }
+
+                // List<MethodDeclaration> methodDeclarations = new MethodDeclarationVisitor().visit(compilationUnitNode, null);
+                // sourcefile.setMethodDeclarations(methodDeclarations);
 
                 List<MethodCallExpr> methodCalls = new MethodCallVisitor().visit(compilationUnitNode, null);
                 sourcefile.setMethodCallExprs(methodCalls);
 
                 if (new App().isProcessingCodeChurnData()) {
-                    new CodeChurnDataBuilder().buildCodeChurnData(sourcefile);
+                    new CodeChurnDataBuilder().buildCodeChurnData(sourcefile, sourceFileId);
                 } else if (new App().isCalculatingSoftwareMetrics()) {
                     new SoftwareMetricsReport().writeSoftwareMetricsReportRow(sourcefile);
                 }

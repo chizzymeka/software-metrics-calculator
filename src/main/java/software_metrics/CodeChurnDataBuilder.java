@@ -1,16 +1,17 @@
 // Map Serialization and Deserialization with Jackson: https://www.baeldung.com/jackson-map
 // How to create a JSON array using Jackson: https://attacomsian.com/blog/jackson-create-json-array
 // Get single field from JSON using Jackson: https://stackoverflow.com/questions/26190851/get-single-field-from-json-using-jackson
+// Combining the Jackson Streaming API with ObjectMapper for parsing JSON (see - 'Generating JSON with JsonGenerator' section): https://cassiomolin.com/2019/08/19/combining-jackson-streaming-api-with-objectmapper-for-parsing-json/
 
 package software_metrics;
 
 import classes.CodeChurn;
-import classes.NumberOfChanges;
+import classes.Method;
+import classes.MethodDeclarationAndAttributes;
 import classes.Sourcefile;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
 import core.VersionNameManager;
 import ucl.cdt.cybersecurity.App;
+import utilities.CurrentTime;
 import utilities.SourcefileNameExtractor;
 import utilities.TaskProgressReporter;
 
@@ -18,147 +19,143 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map.Entry;
 
 public class CodeChurnDataBuilder {
 
-    public void buildCodeChurnData(Sourcefile sourcefile) throws IOException {
+    public void buildCodeChurnData(Sourcefile sourcefile, int sourceFileId) throws IOException {
 
         new TaskProgressReporter().showProgress();
+
         HashMap<String, HashSet<CodeChurn>> codeChurnDataMap = new App().getCodeChurnDataMap();
-        HashSet<CodeChurn> codeChurnObjects = new App().getCodeChurnObjects();
-        List<ClassOrInterfaceDeclaration> classOrInterfaceDeclarations = sourcefile.getClassDeclarations();
+        HashMap<String, HashSet<MethodDeclarationAndAttributes>> classNameAndMethodDeclarationAndAttributes = sourcefile.getClassNameAndMethodDeclarationAndAttributes();
+
         String filepath = sourcefile.getFilepath();
         String versionName = new VersionNameManager().getVersionName(filepath);
         String filepathSuffix = filepath.split(versionName)[1];
         String sourceFileName = new SourcefileNameExtractor().extractSourcefileName(filepath);
-        ArrayList<String> versionNamesList = new ArrayList<>(new VersionNameManager().getVersionNames());  // LinkedHashSet to ArrayList conversion.
 
-        for (ClassOrInterfaceDeclaration classOrInterfaceDeclaration : classOrInterfaceDeclarations) {
+        ArrayList<String> versionNamesList = new App().getVersionNamesList(); // LinkedHashSet to ArrayList conversion. Note that this list of version names is sorted using the 'AlphanumComparator' algorithm.
+
+        for (Entry<String, HashSet<MethodDeclarationAndAttributes>> entry : classNameAndMethodDeclarationAndAttributes.entrySet()) {
 
             CodeChurn codeChurn = new CodeChurn();
+            codeChurn.setCodeChurnObjectId(sourceFileId);
             codeChurn.setFilepath(filepath);
             codeChurn.setFilepathSuffix(filepathSuffix);
             codeChurn.setVersionName(versionName);
             codeChurn.setSourcefileName(sourceFileName);
 
-            String className = classOrInterfaceDeclaration.getNameAsString();
+            String className = entry.getKey();
             codeChurn.setClassName(className);
 
-            List<MethodDeclaration> methodDeclarations = classOrInterfaceDeclaration.getMethods();
-            HashMap<String, String> methods = new HashMap<>();
+            HashSet<MethodDeclarationAndAttributes> methodDeclarationAndAttributes = entry.getValue();
+            HashSet<Method> methods = new HashSet<>();
 
-            for (MethodDeclaration methodDeclaration : methodDeclarations) {
-                String methodSignature = methodDeclaration.getSignature().toString();
-                String methodContent = methodDeclaration.toString();
-                methods.put(methodSignature, methodContent);
+            for (MethodDeclarationAndAttributes methodDeclarationAndAttribute : methodDeclarationAndAttributes) {
+
+                Method method = new Method();
+                method.setMethodId(methodDeclarationAndAttribute.getMethodId());
+
+                String methodSignature = methodDeclarationAndAttribute.getMethodDeclaration().getSignature().toString();
+                method.setMethodSignature(methodSignature);
+
+                String methodContent = methodDeclarationAndAttribute.getMethodDeclaration().toString();
+                methodContent = methodContent.replaceAll("\\s",""); // Remove all whitespaces.
+                method.setMethodContent(methodContent);
+                methods.add(method);
             }
 
             codeChurn.setMethods(methods);
-            codeChurnObjects.add(codeChurn);
 
+            if (!codeChurnDataMap.containsKey(versionName)) {
+                HashSet<CodeChurn> codeChurnObjects = new HashSet<>();
+                codeChurnDataMap.put(versionName, codeChurnObjects);
+            }
+            codeChurnDataMap.get(versionName).add(codeChurn);
         }
-
-        new App().setCodeChurnObjects(codeChurnObjects);
-        codeChurnObjects = new App().getCodeChurnObjects();
-        codeChurnDataMap.put(versionName, codeChurnObjects);
-        new App().setCodeChurnDataMap(codeChurnDataMap);
-        codeChurnDataMap = new App().getCodeChurnDataMap();
 
         long numberOfProcessedFiles = new App().getNumberOfProcessedFiles();
         long totalNumberOfJavaSourceFilesInDataset = new App().getTotalNumberOfJavaSourceFilesInDataset();
 
         if (numberOfProcessedFiles == totalNumberOfJavaSourceFilesInDataset) {
 
-            HashMap<String, NumberOfChanges> numberOfChangesMap = App.getNumberOfChangesMap();
+            // The code below sorts the 'codeChurnDataMap' map by version names (keys), from oldest to newest.
+            LinkedHashMap<String, HashSet<CodeChurn>> sortedCodeChurnDataMap = new LinkedHashMap<>();
+            for (String version : versionNamesList) {
+                if (codeChurnDataMap.containsKey(version)) {
+                    sortedCodeChurnDataMap.put(version, codeChurnDataMap.get(version));
+                }
+            }
+
+            HashMap<Integer, Integer> numberOfChangesMap = App.getNumberOfChangesMap();
 
             // The code below traverses the entire dataset and compares every method to their counterparts in other version to detect changes.
-            for (Entry<String, HashSet<CodeChurn>> entry_outer : codeChurnDataMap.entrySet()) {
+            for (Entry<String, HashSet<CodeChurn>> entry_outer : sortedCodeChurnDataMap.entrySet()) {
 
-                String versionName_outer = entry_outer.getKey();
                 HashSet<CodeChurn> codeChurnObjects_outer = entry_outer.getValue();
 
                 for (CodeChurn codeChurnObject_outer : codeChurnObjects_outer) {
 
-                    for (Entry<String, HashSet<CodeChurn>> entry_inner : codeChurnDataMap.entrySet()) {
+                    for (Entry<String, HashSet<CodeChurn>> entry_inner : sortedCodeChurnDataMap.entrySet()) {
 
-                        String versionName_inner = entry_inner.getKey();
                         HashSet<CodeChurn> codeChurnObjects_inner = entry_inner.getValue();
 
-                        // Check that versions are NOT the same.
-                        if (!versionName_outer.equals(versionName_inner)) {
+                        for (CodeChurn codeChurnObject_inner : codeChurnObjects_inner) {
 
-                            for (CodeChurn codeChurnObject_inner : codeChurnObjects_inner) {
+                            String versionName_outer = entry_outer.getKey();
+                            String versionName_inner = entry_inner.getKey();
+
+                            // Check that versions are NOT the same.
+                            if (versionName_outer.hashCode() != versionName_inner.hashCode()) {
+
+                                String filePathSuffix_outer = codeChurnObject_outer.getFilepathSuffix();
+                                String filePathSuffix_inner = codeChurnObject_inner.getFilepathSuffix();
 
                                 // Check that filepath suffixes are the same. This implies that the source files are the same as well but across different versions.
-                                if (codeChurnObject_outer.getFilepathSuffix().equals(codeChurnObject_inner.getFilepathSuffix())) {
+                                if (filePathSuffix_outer.hashCode() == filePathSuffix_inner.hashCode()) {
 
-                                    String className_outer = codeChurnObject_outer.getClassName();
-                                    String className_inner = codeChurnObject_inner.getClassName();
-                                    HashMap<String, String> methods_outer = codeChurnObject_outer.getMethods();
-                                    HashMap<String, String> methods_inner = codeChurnObject_inner.getMethods();
-                                    String filePathSuffix_outer = codeChurnObject_outer.getFilepathSuffix();
-                                    String filePathSuffix_inner = codeChurnObject_inner.getFilepathSuffix();
+                                    HashSet<Method> methods_outer = codeChurnObject_outer.getMethods();
+                                    HashSet<Method> methods_inner = codeChurnObject_inner.getMethods();
 
-                                    for (Entry<String, String> method_outer : methods_outer.entrySet()) {
+                                    for (Method method_outer : methods_outer) {
 
-                                        String methodSignature_outer = method_outer.getKey();
-                                        String methodContent_outer = method_outer.getValue();
+                                        for (Method method_inner : methods_inner) {
 
-                                        for (Entry<String, String> method_inner : methods_inner.entrySet()) {
-
-                                            String methodSignature_inner = method_inner.getKey();
-                                            String methodContent_inner = method_inner.getValue();
+                                            String className_outer = codeChurnObject_outer.getClassName();
+                                            String className_inner = codeChurnObject_inner.getClassName();
 
                                             // Check that the class names are the same.
-                                            if (className_outer.equals(className_inner)) {
+                                            if (className_outer.hashCode() == className_inner.hashCode()) {
+
+                                                String methodSignature_outer = method_outer.getMethodSignature();
+                                                String methodSignature_inner = method_inner.getMethodSignature();
 
                                                 // Check that the method signatures are the same.
-                                                if (methodSignature_outer.equals(methodSignature_inner)) {
+                                                if (methodSignature_outer.hashCode() == methodSignature_inner.hashCode()) {
 
-                                                    String key = versionName_outer + "=+=" + filePathSuffix_outer + "=+=" +  className_outer + "=+=" + methodSignature_outer + "=+=" + methodContent_outer;
-                                                    NumberOfChanges numberOfChangesObject = new NumberOfChanges();
-                                                    int numberOfChanges;
+                                                    int methodId = method_outer.getMethodId();
+                                                    int numberOfChanges = 0;
+
+                                                    String methodContent_outer = method_outer.getMethodContent();
+                                                    String methodContent_inner = method_inner.getMethodContent();
 
                                                     // Check that the method contents are NOT the same.
-                                                    if (!methodContent_outer.equals(methodContent_inner)) {
+                                                    if (methodContent_outer.hashCode() != methodContent_inner.hashCode()) {
 
                                                         // System.out.println("Change detected!");
 
-                                                        if (!numberOfChangesMap.containsKey(key)) {
-                                                            numberOfChangesObject = new NumberOfChanges();
-                                                        } else {
-                                                            numberOfChangesObject = numberOfChangesMap.get(key);
+                                                        if (numberOfChangesMap.containsKey(methodId)) {
+                                                            numberOfChanges = numberOfChangesMap.get(methodId);
                                                         }
-                                                        numberOfChanges = versionNamesList.indexOf(versionName_outer);
-                                                        numberOfChangesObject.setCodeChurnValue(numberOfChanges);
-                                                    } else {
-                                                        // When no code churn is detected, this 'else' section doubles back to reuse the positive last code churn value.
-
-                                                        int index = versionNamesList.indexOf(versionName_outer);
-                                                        numberOfChanges = numberOfChangesObject.getCodeChurnValue();
-
-                                                        // if ((index > 0) && (numberOfChanges == 0)) {
-                                                        //    numberOfChanges = index - 1;
-                                                        //    numberOfChangesObject.setCodeChurnValue(numberOfChanges);
-                                                        // }
-
-                                                        // Check that the key is not associated with the oldest version but has zero changes
-                                                        if ((index > 0) && (numberOfChanges == 0)) {
-                                                            while (index > 0) {
-
-                                                                --index;
-
-                                                                if ((numberOfChangesMap.containsKey(key)) && (index != 0) && (numberOfChangesMap.get(key).getCodeChurnValue() <= index)) {
-                                                                    numberOfChanges = index;
-                                                                    break;
-                                                                }
-                                                            }
-                                                        }
-                                                        numberOfChangesObject.setCodeChurnValue(numberOfChanges);
+                                                        numberOfChanges++;
                                                     }
-                                                    numberOfChangesMap.put(key, numberOfChangesObject);
+
+                                                    // The if-statement check (before insertion) below helps sort the CSV by ensuring that the lower code churn values start appearing at the beginning of the CSV file.
+                                                    if (numberOfChanges <= versionNamesList.indexOf(versionName_outer)) {
+                                                        numberOfChangesMap.put(methodId, numberOfChanges);
+                                                    }
                                                 }
                                             }
                                         }
@@ -169,12 +166,10 @@ public class CodeChurnDataBuilder {
                     }
                 }
             }
-
-            // Files.write(Paths.get("churnedKeys.txt"), () -> churnedKeys.entrySet().stream().<CharSequence>map(e -> e.getKey() + ":" + e.getValue()).iterator());
-            // Files.write(Paths.get("unChurnedKeys.txt"), () -> unChurnedKeys.entrySet().stream().<CharSequence>map(e -> e.getKey() + ":" + e.getValue()).iterator());
+            System.out.println("Code churn data build completed...[" + new CurrentTime().getCurrentTimeStamp() + "]");
 
             // System.exit(0);
-            // Reset the number of processed files counter after building code churn data so that it will start afresh for CSV writing.
+            // Reset the 'number of processed files' counter after building code churn data so that it will start afresh for CSV writing.
             new App().setNumberOfProcessedFiles(0L);
         }
     }

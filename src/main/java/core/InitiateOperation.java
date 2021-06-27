@@ -12,10 +12,13 @@ public class InitiateOperation {
 
         TreeSet<Path> paths = new App().getPaths();
 
+        // TODO: Change data type to long for scalability.
+        int sourceFileId = 0;
         for (Path path : paths) {
             // Process all Java files.
             if (path.toString().endsWith(".java")) {
-                new SourceFileObjectBuilder().buildSourceFileObject(path.toString());
+                ++sourceFileId;
+                new SourceFileObjectBuilder().buildSourceFileObject(path.toString(), sourceFileId);
             }
         }
     }

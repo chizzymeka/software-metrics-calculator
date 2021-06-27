@@ -1,7 +1,6 @@
 package ucl.cdt.cybersecurity;
 
 import classes.CodeChurn;
-import classes.NumberOfChanges;
 import core.InitiateOperation;
 import core.VersionNameManager;
 import dataset.Dataset;
@@ -26,11 +25,11 @@ public class App {
     private static HashMap<String, HashSet<CodeChurn>> codeChurnDataMap = new HashMap<>();
     private static HashSet<CodeChurn> codeChurnObjects = new HashSet<>();
     private static ArrayList<String> versionNamesList;
-    private static HashMap<String, NumberOfChanges> numberOfChangesMap = new HashMap<>();
+    private static HashMap<Integer, Integer> numberOfChangesMap = new HashMap<>();
     private static boolean isCountingJavaSourceFiles = false;
     private static boolean isProcessingCodeChurnData = false;
     private static boolean isCalculatingSoftwareMetrics = false;
-    private static boolean runOnce;
+    private static HashMap<String, Integer> keyMap = new HashMap<>();
 
     // ORDER OF METHOD CALLS
     // askUserForDatasetPath()
@@ -66,9 +65,6 @@ public class App {
                 isCalculatingSoftwareMetrics = false;
                 new InitiateOperation().startProgramExecution();
             } else if (i == 4) {
-                // Once the program progresses to write the software metrics report, clear out the data structures to help memory.
-                codeChurnDataMap = null;
-                codeChurnObjects = null;
                 isCountingJavaSourceFiles = false;
                 isProcessingCodeChurnData = false;
                 isCalculatingSoftwareMetrics = true;
@@ -81,7 +77,7 @@ public class App {
     void askUserForDatasetPath() throws IOException {
 
         Scanner scanner = new Scanner(System.in);
-        System.out.println("Required Format: C:" + File.separator + "Users" + File.separator + "Dataset" + "(Where the 'Dataset' folder contains subfolders comprising all the system versions.)");
+        System.out.println("Required Format: C:" + File.separator + "Users" + File.separator + "Dataset" + "(Where the 'Dataset' folder contains sub folders comprising all the system versions.)");
         // TODO: Remove this line after completing the program.
         System.out.println("Current Dataset Location: E:" + File.separator + "Year 1 Project Dataset" + File.separator + "Dataset");
         System.out.println("Test Dataset Location: E:" + File.separator + "Year 1 Project Dataset" + File.separator + "Test Dataset");
@@ -101,6 +97,7 @@ public class App {
     }
 
     void buildProgressInterval() {
+
         // This code sets and scales the progress interval depending on the total number of Java files found. For example: 'Processed 1000 out of 5119' or 'Processed 10000 out of 51119'.
         String totalNumberOfJavaSourceFilesInDataset_str = String.valueOf(totalNumberOfJavaSourceFilesInDataset);
         int numberOfZeros = totalNumberOfJavaSourceFilesInDataset_str.length() - 1;
@@ -109,11 +106,14 @@ public class App {
             numberOfZeros = 4;
         }
 
-        String progressInterval_str = "1";
+        StringBuilder progressInterval_str = new StringBuilder("1");
+
         for (int j = 0; j < numberOfZeros; j++) {
-            progressInterval_str += "0";
+            progressInterval_str.append("0");
         }
-        progressInterval = Integer.parseInt(progressInterval_str);
+
+        progressInterval = Integer.parseInt(progressInterval_str.toString());
+
     }
 
     public Path getDatasetPath() { return datasetPath; }
@@ -138,11 +138,11 @@ public class App {
 
     public ArrayList<String> getVersionNamesList() {return versionNamesList;}
 
-    public static HashMap<String, NumberOfChanges> getNumberOfChangesMap() {
+    public static HashMap<Integer, Integer> getNumberOfChangesMap() {
         return numberOfChangesMap;
     }
 
-    public static void setNumberOfChangesMap(HashMap<String, NumberOfChanges> numberOfChangesMap) {
+    public static void setNumberOfChangesMap(HashMap<Integer, Integer> numberOfChangesMap) {
         App.numberOfChangesMap = numberOfChangesMap;
     }
 
@@ -176,14 +176,13 @@ public class App {
         App.codeChurnObjects = codeChurnObjects;
     }
 
-    public static boolean isRunOnce() {
-        return runOnce;
+    public static HashMap<String, Integer> getKeyMap() {
+        return keyMap;
     }
 
-    public static void setRunOnce(boolean runOnce) {
-        App.runOnce = runOnce;
+    public static void setKeyMap(HashMap<String, Integer> keyMap) {
+        App.keyMap = keyMap;
     }
 
-    // TODO: Look at his link for hyperlinking fie paths:
-    // https://stackoverflow.com/questions/7930844/is-it-possible-to-have-clickable-class-names-in-console-output-in-intellij/29881239#29881239
+    // TODO: Look at his link for hyperlinking fie paths: https://stackoverflow.com/questions/7930844/is-it-possible-to-have-clickable-class-names-in-console-output-in-intellij/29881239#29881239
 }

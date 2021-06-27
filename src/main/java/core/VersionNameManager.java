@@ -20,7 +20,7 @@ public class VersionNameManager {
         FileSeparator fileSeparator = new FileSeparator();
         String pathSeparator = fileSeparator.getFileSeparator();
         ArrayList<String> versionNames = new ArrayList<>();
-        LinkedHashSet versionNames_sorted = null;
+        LinkedHashSet<String> versionNames_sorted = null;
 
         // Traverse the top level folders in the dataset folder to obtain the system version names from the folder names.
         if (datasetPath != null) {
@@ -39,9 +39,8 @@ public class VersionNameManager {
                     }
                 }
             }
-            List<String> values = versionNames;
-            List<String> versionNamesList = values.stream().sorted(new AlphanumComparator()).collect(Collectors.toList());
-            versionNames_sorted = new LinkedHashSet(versionNamesList);
+            List<String> versionNamesList = versionNames.stream().sorted(new AlphanumComparator()).collect(Collectors.toList());
+            versionNames_sorted = new LinkedHashSet<>(versionNamesList);
         }
         return versionNames_sorted;
     }
@@ -62,7 +61,7 @@ public class VersionNameManager {
 
     public int getTotalNumberOfVersions() throws IOException {
 
-        int totalNumberOfVersions = 0;
+        int totalNumberOfVersions;
         totalNumberOfVersions = getVersionNames().size();
         return totalNumberOfVersions;
 
